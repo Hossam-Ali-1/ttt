@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المعلم | Smart QR</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h3><i class="fa-solid fa-qrcode"></i> Smart QR</h3>
+                <p>لوحة تحكم المعلم</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="teacher.html" class="active"><i class="fa-solid fa-home"></i> <span>الرئيسية</span></a>
+                <a href="teacher-questions.html"><i class="fa-solid fa-circle-question"></i> <span>إدارة الأسئلة</span></a>
+                <a href="teacher-statistics.html"><i class="fa-solid fa-chart-bar"></i> <span>الإحصائيات</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">م</div>
+                    <div class="user-details">
+                        <p id="sidebarUserName">معلم</p>
+                        <small id="sidebarUserRole">Teacher</small>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1>🎯 لوحة تحكم المعلم</h1>
+                <p>إنشاء أكواد QR للمحاضرات ومتابعة الحضور</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="fa-solid fa-qrcode"></i></div>
+                    <div class="stat-info"><h3 id="totalLectures">0</h3><p>إجمالي المحاضرات</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-info"><h3 id="totalAttendance">0</h3><p>إجمالي الحضور</p></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fa-solid fa-circle-question"></i></div>
+                    <div class="stat-info"><h3 id="totalQuestions">0</h3><p>إجمالي الأسئلة</p></div>
+                </div>
+            </div>
+
+            <!-- Generate QR -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📱 إنشاء QR للمحاضرة</h2>
+                </div>
+                <div class="form-group">
+                    <label for="courseName">اسم المقرر</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="courseName" placeholder="مثال: بيئات تعلم افتراضية">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="lectureTitle">عنوان المحاضرة</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="lectureTitle" placeholder="مثال: المحاضرة الخامسة - الواقع المعزز">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="qrDuration">مدة صلاحية الكود (دقائق)</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="qrDuration" value="10" min="1" max="60">
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="generateQRCode()">
+                    <i class="fa-solid fa-qrcode"></i> إنشاء كود QR
+                </button>
+
+                <!-- QR Display -->
+                <div id="qrContainer" class="qr-container" style="display: none; margin-top: 20px;">
+                    <div class="qr-display" id="qrCodeDisplay"></div>
+                    <div class="timer-display" id="timerDisplay">10:00</div>
+                    <div class="timer-bar"><div class="timer-progress" id="timerProgress"></div></div>
+                    <p id="timerStatus" style="margin-top: 10px; font-weight: 600;">✅ الكود نشط</p>
+                    <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+                        <button class="btn-secondary" onclick="printQRCode()"><i class="fa-solid fa-print"></i> طباعة</button>
+                        <button class="btn-danger" onclick="cancelQRCode()"><i class="fa-solid fa-xmark"></i> إلغاء</button>
+                    </div>
+                </div>
+                <div id="qrMessage"></div>
+            </div>
+
+            <!-- Attendance Records -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 سجلات الحضور</h2>
+                </div>
+                <div class="table-container">
+                    <table id="attendanceTable">
+                        <thead>
+                            <tr>
+                                <th>الطالب</th>
+                                <th>المقرر</th>
+                                <th>المحاضرة</th>
+                                <th>وقت الحضور</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceBody">
+                            <tr><td colspan="4" class="empty-state">لا توجد سجلات حضور بعد</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/firebase.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/teacher.js"></script>
+</body>
+</html>

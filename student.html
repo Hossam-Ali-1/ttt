@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الحضور | Smart QR</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h3><i class="fa-solid fa-qrcode"></i> Smart QR</h3>
+                <p>لوحة الطالب</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="student.html" class="active"><i class="fa-solid fa-camera"></i> <span>مسح QR</span></a>
+                <a href="student-questions.html"><i class="fa-solid fa-circle-question"></i> <span>الإجابة على الأسئلة</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">ط</div>
+                    <div class="user-details">
+                        <p id="sidebarUserName">طالب</p>
+                        <small id="sidebarUserRole">Student</small>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1>📱 تسجيل الحضور</h1>
+                <p>امسح كود QR الذي يعرضه المعلم لتسجيل حضورك</p>
+            </div>
+
+            <!-- Student Info (Auto-loaded from session) -->
+            <div class="card">
+                <div class="card-header"><h2>👤 معلومات الطالب</h2></div>
+                <div id="studentInfoDisplay" style="line-height: 2;">
+                    <p><strong>الاسم:</strong> <span id="displayName"></span></p>
+                    <p><strong>البريد:</strong> <span id="displayEmail"></span></p>
+                </div>
+            </div>
+
+            <!-- QR Scanner -->
+            <div class="card">
+                <div class="card-header"><h2>📷 مسح كود QR</h2></div>
+                
+                <div class="scanner-view" id="reader"></div>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <button class="btn-primary" onclick="startScanner()" id="startScanBtn">
+                        <i class="fa-solid fa-camera"></i> فتح الكاميرا
+                    </button>
+                    <button class="btn-danger" onclick="stopScanner()" id="stopScanBtn" style="display: none;">
+                        <i class="fa-solid fa-stop"></i> إغلاق الكاميرا
+                    </button>
+                </div>
+                
+                <div id="scanStatus" style="text-align: center; margin-top: 10px;"></div>
+            </div>
+
+            <!-- Attendance History -->
+            <div class="card">
+                <div class="card-header"><h2>📊 سجل حضوري</h2></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>المقرر</th><th>المحاضرة</th><th>وقت التسجيل</th></tr>
+                        </thead>
+                        <tbody id="myAttendanceBody">
+                            <tr><td colspan="3" class="empty-state">لا توجد سجلات حضور</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/firebase.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/student.js"></script>
+</body>
+</html>

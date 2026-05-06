@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب | Smart QR Attendance</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <!-- Brand -->
+            <div class="auth-brand">
+                <div class="brand-icon"><i class="fa-solid fa-qrcode"></i></div>
+                <h1>Smart QR</h1>
+                <p>إنشاء حساب جديد</p>
+            </div>
+
+            <!-- Register Form -->
+            <form class="auth-form" id="registerForm" novalidate>
+                
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="fullName"><i class="fa-solid fa-user"></i> الاسم الكامل</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fullName" placeholder="أدخل اسمك الكامل" required>
+                    </div>
+                    <span class="error-message" id="fullNameError"></span>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email"><i class="fa-solid fa-envelope"></i> البريد الإلكتروني</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" placeholder="example@email.com" dir="ltr" required>
+                    </div>
+                    <span class="error-message" id="emailError"></span>
+                </div>
+
+                <!-- National ID -->
+                <div class="form-group">
+                    <label for="nationalId"><i class="fa-solid fa-id-card"></i> الرقم القومي</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="nationalId" placeholder="أدخل الرقم القومي 14 رقم" maxlength="14" inputmode="numeric" required>
+                    </div>
+                    <span class="error-message" id="nationalIdError"></span>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> كلمة المرور</label>
+                    <div class="input-wrapper password-wrapper">
+                        <input type="password" id="password" placeholder="أنشئ كلمة مرور" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('password', 'toggleIcon1')">
+                            <i id="toggleIcon1" class="fa-solid fa-eye-slash"></i>
+                        </button>
+                    </div>
+                    <span class="error-message" id="passwordError"></span>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="confirmPassword"><i class="fa-solid fa-lock"></i> تأكيد كلمة المرور</label>
+                    <div class="input-wrapper password-wrapper">
+                        <input type="password" id="confirmPassword" placeholder="أكد كلمة المرور" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('confirmPassword', 'toggleIcon2')">
+                            <i id="toggleIcon2" class="fa-solid fa-eye-slash"></i>
+                        </button>
+                    </div>
+                    <span class="error-message" id="confirmPasswordError"></span>
+                </div>
+
+                <!-- Role Selection -->
+                <div class="form-group">
+                    <label><i class="fa-solid fa-user-tag"></i> اختر الصفة</label>
+                    <div class="role-options">
+                        <label class="role-option">
+                            <input type="radio" name="role" value="teacher" required>
+                            <div class="role-content">
+                                <i class="fa-solid fa-chalkboard-user"></i>
+                                <span>معلم</span>
+                            </div>
+                        </label>
+                        <label class="role-option">
+                            <input type="radio" name="role" value="student" required>
+                            <div class="role-content">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                                <span>طالب</span>
+                            </div>
+                        </label>
+                    </div>
+                    <span class="error-message" id="roleError"></span>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    <i class="fa-solid fa-user-plus"></i> إنشاء حساب
+                </button>
+
+                <div id="globalMessage"></div>
+            </form>
+
+            <!-- Login Link -->
+            <div class="auth-footer">
+                <p>لديك حساب بالفعل؟ <a href="login.html">تسجيل الدخول</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/firebase.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // ==================== DOM Elements ====================
+        const form = document.getElementById('registerForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const globalMessage = document.getElementById('globalMessage');
+
+        // ==================== Show Messages ====================
+        function showError(message) {
+            globalMessage.innerHTML = `<div class="global-error"><i class="fa-solid fa-circle-exclamation"></i> ${message}</div>`;
+        }
+
+        function showSuccess(message) {
+            globalMessage.innerHTML = `<div class="global-success"><i class="fa-solid fa-circle-check"></i> ${message}</div>`;
+        }
+
+        function clearMessage() {
+            globalMessage.innerHTML = '';
+        }
+
+        function setError(fieldId, message) {
+            const errorSpan = document.getElementById(fieldId + 'Error');
+            if (errorSpan) errorSpan.textContent = message;
+        }
+
+        function clearErrors() {
+            ['fullName', 'email', 'nationalId', 'password', 'confirmPassword', 'role'].forEach(field => {
+                setError(field, '');
+            });
+        }
+
+        // ==================== Submit Handler ====================
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            clearMessage();
+            clearErrors();
+
+            let isValid = true;
+
+            // Get values
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const nationalId = document.getElementById('nationalId').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const roleEl = document.querySelector('input[name="role"]:checked');
+            const role = roleEl ? roleEl.value : null;
+
+            // Validate full name
+            if (!fullName) { setError('fullName', 'الاسم الكامل مطلوب'); isValid = false; }
+
+            // Validate email
+            if (!email) { setError('email', 'البريد الإلكتروني مطلوب'); isValid = false; }
+            else if (!isValidEmail(email)) { setError('email', 'صيغة البريد الإلكتروني غير صحيحة'); isValid = false; }
+
+            // Validate national ID
+            if (!nationalId) { setError('nationalId', 'الرقم القومي مطلوب'); isValid = false; }
+            else if (!isValidNationalId(nationalId)) { setError('nationalId', 'الرقم القومي يجب أن يكون 14 رقمًا'); isValid = false; }
+
+            // Validate password
+            if (!password) { setError('password', 'كلمة المرور مطلوبة'); isValid = false; }
+            else if (password.length < 6) { setError('password', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'); isValid = false; }
+
+            // Validate confirm password
+            if (!confirmPassword) { setError('confirmPassword', 'تأكيد كلمة المرور مطلوب'); isValid = false; }
+            else if (password !== confirmPassword) { setError('confirmPassword', 'كلمتا المرور غير متطابقتين'); isValid = false; }
+
+            // Validate role
+            if (!role) { setError('role', 'يرجى اختيار الصفة (معلم أو طالب)'); isValid = false; }
+
+            if (!isValid) return;
+
+            // Submit
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري إنشاء الحساب...';
+
+            try {
+                const userData = { fullName, email, nationalId, password, role };
+                const result = await registerUser(userData);
+
+                showSuccess('تم إنشاء الحساب بنجاح! جاري التوجيه...');
+
+                // Save session and redirect
+                saveSession(result);
+
+                setTimeout(() => {
+                    redirectToDashboard(result.role);
+                }, 1500);
+
+            } catch (error) {
+                showError(error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> إنشاء حساب';
+            }
+        });
+    </script>
+</body>
+</html>
