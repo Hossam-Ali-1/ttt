@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الإجابة على الأسئلة | Smart QR</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h3><i class="fa-solid fa-qrcode"></i> Smart QR</h3>
+                <p>لوحة الطالب</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="student.html"><i class="fa-solid fa-camera"></i> <span>مسح QR</span></a>
+                <a href="student-questions.html" class="active"><i class="fa-solid fa-circle-question"></i> <span>الإجابة على الأسئلة</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">ط</div>
+                    <div class="user-details">
+                        <p id="sidebarUserName">طالب</p>
+                        <small>Student</small>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1>❓ الإجابة على الأسئلة</h1>
+                <p>أجب على الأسئلة قبل انتهاء الوقت المحدد</p>
+            </div>
+
+            <!-- Timer -->
+            <div id="timerContainer" class="card" style="display: none; text-align: center;">
+                <div class="timer-display" id="timerDisplay">05:00</div>
+                <div class="timer-bar"><div class="timer-progress" id="timerProgress"></div></div>
+            </div>
+
+            <!-- Question Card -->
+            <div id="questionCard" class="card" style="display: none;">
+                <div id="questionTypeBadge" style="margin-bottom: 15px;"></div>
+                <h2 id="questionDisplay" style="margin-bottom: 20px;"></h2>
+                <div id="answerOptions"></div>
+                <button class="btn-primary" onclick="submitAnswer()" id="submitBtn" style="margin-top: 20px;">
+                    <i class="fa-solid fa-paper-plane"></i> إرسال الإجابة
+                </button>
+                <div id="answerFeedback" style="margin-top: 15px;"></div>
+            </div>
+
+            <!-- No Questions -->
+            <div id="noQuestions" class="card" style="text-align: center; padding: 40px;">
+                <i class="fa-solid fa-inbox" style="font-size: 3rem; color: #aaa; display: block; margin-bottom: 15px;"></i>
+                <h3>لا توجد أسئلة متاحة</h3>
+                <p style="color: #666;">ينتظر حتى يضيف المعلم أسئلة جديدة</p>
+            </div>
+
+            <!-- Times Up -->
+            <div id="timesUp" class="card" style="display: none; text-align: center; padding: 40px;">
+                <i class="fa-solid fa-hourglass-end" style="font-size: 3rem; color: #dc3545; display: block; margin-bottom: 15px;"></i>
+                <h3 style="color: #dc3545;">⏰ انتهى الوقت!</h3>
+                <p style="color: #666;">تم إغلاق السؤال</p>
+            </div>
+
+            <!-- Navigation -->
+            <div id="navigation" style="display: none; display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+                <button class="btn-outline" onclick="changeQuestion(-1)" id="prevBtn">← السابق</button>
+                <span id="questionCounter" style="display: flex; align-items: center; font-weight: 600;"></span>
+                <button class="btn-outline" onclick="changeQuestion(1)" id="nextBtn">التالي →</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/firebase.js"></script>
+    <script src="js/session.js"></script>
+    <script>
+        // ==================== Auth Check ====================
+        const currentUser = requireAuth('student');
+        if (!currentUser) window.location.href = 'login.html';
+
+        // ==================== State ====================
+        let questions = [];
+        let currentIndex = 0;
+        let timerInterval = null;
+        let timeRemaining = 0;
+        let questionAnswered = false;
+        let selectedAnswer = null;
+
+        // ==================== Initialize ====================
+        function init() {
+            document.getElementById('sidebarUserName').textContent = currentUser.fullName;
+            document.getElementById('userAvatar').textContent = currentUser.fullName.charAt(0);
+            loadQuestions();
+        }
+
+        // ==================== Load Questions ====================
+        async function loadQuestions() {
+            try {
+                const snapshot = await questionsCollection.orderBy('createdAt', 'desc').get();
+                questions = [];
+                snapshot.forEach(doc => {
+                    questions.push({ id: doc.id, ...doc.data() });
+                });
+                
+                if (questions.length > 0) {
+                    displayQuestion(0);
+                } else {
+                    document.getElementById('noQuestions').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+            }
+        }
+
+        // ==================== Display Question ====================
+        function displayQuestion(index) {
+            if (index < 0 || index >= questions.length) return;
+            
+            currentIndex = index;
+            questionAnswered = false;
+            selectedAnswer = null;
+            clearTimer();
+            
+            const question = questions[index];
+            
+            document.getElementById('noQuestions').style.display = 'none';
+            document.getElementById('timesUp').style.display = 'none';
+            document.getElementById('questionCard').style.display = 'block';
+            document.getElementById('timerContainer').style.display = 'block';
+            document.getElementById('answerFeedback').innerHTML = '';
+            
+            // Display question text
+            document.getElementById('questionDisplay').textContent = question.questionText;
+            
+            // Display type badge
+            const typeLabel = question.type === 'mcq' ? 'اختيار من متعدد' : 'صح / خطأ';
+            document.getElementById('questionTypeBadge').innerHTML = 
+                `<span class="badge badge-info">${typeLabel}</span>`;
+            
+            // Display options
+            let optionsHTML = '';
+            if (question.type === 'mcq') {
+                ['A', 'B', 'C', 'D'].forEach(letter => {
+                    if (question.options[letter]) {
+                        optionsHTML += `
+                            <div class="question-option" onclick="selectOption('${letter}')" id="opt-${letter}">
+                                <strong>${letter})</strong> ${question.options[letter]}
+                            </div>
+                        `;
+                    }
+                });
+            } else {
+                optionsHTML += `
+                    <div class="question-option" onclick="selectOption('true')" id="opt-true">✅ <strong>صح</strong></div>
+                    <div class="question-option" onclick="selectOption('false')" id="opt-false">❌ <strong>خطأ</strong></div>
+                `;
+            }
+            document.getElementById('answerOptions').innerHTML = optionsHTML;
+            
+            // Start timer
+            startTimer(question.duration || 5);
+            
+            // Update navigation
+            updateNavigation();
+        }
+
+        // ==================== Select Option ====================
+        function selectOption(value) {
+            if (questionAnswered || timeRemaining <= 0) return;
+            
+            selectedAnswer = value;
+            
+            // Update visual
+            document.querySelectorAll('.question-option').forEach(el => el.classList.remove('selected'));
+            const selectedEl = document.getElementById(`opt-${value}`);
+            if (selectedEl) selectedEl.classList.add('selected');
+        }
+
+        // ==================== Start Timer ====================
+        function startTimer(minutes) {
+            clearInterval(timerInterval);
+            timeRemaining = minutes * 60;
+            updateTimerDisplay();
+            
+            const progressBar = document.getElementById('timerProgress');
+            progressBar.style.transition = 'none';
+            progressBar.style.width = '100%';
+            progressBar.offsetHeight;
+            progressBar.style.transition = `width ${timeRemaining}s linear`;
+            progressBar.style.width = '0%';
+            
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                if (timeRemaining <= 30) {
+                    document.getElementById('timerDisplay').classList.add('timer-danger');
+                } else if (timeRemaining <= 60) {
+                    document.getElementById('timerDisplay').classList.add('timer-warning');
+                }
+                
+                if (timeRemaining <= 0) {
+                    clearTimer();
+                    handleTimeUp();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(timeRemaining / 60);
+            const secs = timeRemaining % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function clearTimer() {
+            clearInterval(timerInterval);
+            document.getElementById('timerDisplay').classList.remove('timer-warning', 'timer-danger');
+        }
+
+        // ==================== Submit Answer ====================
+        async function submitAnswer() {
+            if (questionAnswered) return;
+            if (timeRemaining <= 0) return;
+            if (!selectedAnswer) {
+                alert('يرجى اختيار إجابة');
+                return;
+            }
+            
+            const question = questions[currentIndex];
+            const isCorrect = selectedAnswer === question.correctAnswer;
+            
+            questionAnswered = true;
+            clearTimer();
+            
+            // Save to Firebase
+            try {
+                await answersCollection.add({
+                    studentId: currentUser.id,
+                    studentName: currentUser.fullName,
+                    studentEmail: currentUser.email,
+                    questionId: question.questionId,
+                    questionText: question.questionText,
+                    selectedAnswer: selectedAnswer,
+                    correctAnswer: question.correctAnswer,
+                    isCorrect: isCorrect,
+                    answeredAt: getServerTimestamp()
+                });
+                console.log('✅ Answer saved');
+            } catch (error) {
+                console.error('❌ Error saving answer:', error);
+            }
+            
+            // Show feedback
+            const feedback = document.getElementById('answerFeedback');
+            feedback.innerHTML = isCorrect 
+                ? '<div class="global-success">✅ إجابة صحيحة! أحسنت</div>'
+                : `<div class="global-error">❌ إجابة خاطئة. الإجابة الصحيحة: ${question.correctAnswer}</div>`;
+            
+            document.getElementById('submitBtn').disabled = true;
+            
+            // Auto next
+            setTimeout(() => {
+                if (currentIndex < questions.length - 1) {
+                    changeQuestion(1);
+                }
+            }, 2000);
+        }
+
+        // ==================== Handle Time Up ====================
+        function handleTimeUp() {
+            document.getElementById('questionCard').style.display = 'none';
+            document.getElementById('timesUp').style.display = 'block';
+        }
+
+        // ==================== Navigation ====================
+        function changeQuestion(direction) {
+            const newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < questions.length) {
+                document.getElementById('submitBtn').disabled = false;
+                displayQuestion(newIndex);
+            }
+        }
+
+        function updateNavigation() {
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = currentIndex === questions.length - 1;
+            document.getElementById('questionCounter').textContent = 
+                `${currentIndex + 1} / ${questions.length}`;
+            document.getElementById('navigation').style.display = questions.length > 1 ? 'flex' : 'none';
+        }
+
+        // ==================== Logout ====================
+        function logout() {
+            clearSession();
+            window.location.href = 'login.html';
+        }
+
+        // ==================== Initialize ====================
+        init();
+    </script>
+</body>
+</html>
